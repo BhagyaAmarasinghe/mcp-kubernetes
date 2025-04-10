@@ -7,7 +7,7 @@ A Model Context Protocol (MCP) server for executing Kubernetes commands from Cla
 You can install this tool directly using Go:
 
 ```bash
-go install github.com/bhagya/mcp-kubernetes/cmd@latest
+go install github.com/BhagyaAmarasinghe/mcp-kubernetes/cmd@latest
 ```
 
 ## Usage
