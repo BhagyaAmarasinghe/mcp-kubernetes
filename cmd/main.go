@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/bhagya/mcp-kubernetes/internal/server"
+	"github.com/BhagyaAmarasinghe/mcp-kubernetes/internal/server"
 )
 
 func main() {

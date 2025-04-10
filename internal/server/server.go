@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bhagya/mcp-kubernetes/internal/kubernetes"
+	"github.com/BhagyaAmarasinghe/mcp-kubernetes/internal/kubernetes"
 	"github.com/gorilla/websocket"
 	mcp "github.com/modelcontextprotocol/sdk/go"
 )

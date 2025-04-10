@@ -10,7 +10,7 @@ The file `com.bhagya.mcp-kubernetes.plist` is a LaunchAgent configuration that w
 
 1. First ensure that the MCP Kubernetes server is installed:
    ```bash
-   go install github.com/bhagya/mcp-kubernetes/cmd@latest
+   go install github.com/BhagyaAmarasinghe/mcp-kubernetes/cmd@latest
    ```
 
 2. Copy the LaunchAgent file to your LaunchAgents directory:
@@ -43,7 +43,7 @@ The file `com.bhagya.mcp-kubernetes.plist` is a LaunchAgent configuration that w
 - To remove the service:
   ```bash
   launchctl unload ~/Library/LaunchAgents/com.bhagya.mcp-kubernetes.plist
-  rm ~/Library/LaunchAgents/com.bhagya.mcp-kubernetes.plist
+rm ~/Library/LaunchAgents/com.bhagya.mcp-kubernetes.plist
   ```
 
 ### Logs

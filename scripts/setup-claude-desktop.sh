@@ -3,7 +3,7 @@
 # Check if MCP Kubernetes is installed
 if ! command -v mcp-kubernetes &> /dev/null; then
     echo "MCP Kubernetes is not installed. Installing now..."
-    go install github.com/bhagya/mcp-kubernetes/cmd@latest
+    go install github.com/BhagyaAmarasinghe/mcp-kubernetes/cmd@latest
     if [ $? -ne 0 ]; then
         echo "Failed to install MCP Kubernetes"
         exit 1

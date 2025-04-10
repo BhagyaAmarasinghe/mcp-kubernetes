@@ -1,4 +1,4 @@
-module github.com/bhagya/mcp-kubernetes
+module github.com/BhagyaAmarasinghe/mcp-kubernetes
 
 go 1.21
 

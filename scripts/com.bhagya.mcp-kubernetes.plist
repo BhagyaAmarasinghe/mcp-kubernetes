@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.bhagya.mcp-kubernetes</string>
+    <string>com.bhagyaamarasinghe.mcp-kubernetes</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/bhagya/go/bin/mcp-kubernetes</string>
+        <string>/Users/bhagyaamarasinghe/go/bin/mcp-kubernetes</string>
         <!-- Add additional arguments here if needed -->
         <!-- <string>-port</string> -->
         <!-- <string>8080</string> -->
@@ -16,8 +16,8 @@
     <key>KeepAlive</key>
     <true/>
     <key>StandardErrorPath</key>
-    <string>/Users/bhagya/Library/Logs/mcp-kubernetes.err</string>
+    <string>/Users/bhagyaamarasinghe/Library/Logs/mcp-kubernetes.err</string>
     <key>StandardOutPath</key>
-    <string>/Users/bhagya/Library/Logs/mcp-kubernetes.log</string>
+    <string>/Users/bhagyaamarasinghe/Library/Logs/mcp-kubernetes.log</string>
 </dict>
 </plist>
