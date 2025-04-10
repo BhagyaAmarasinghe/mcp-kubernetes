@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/BhagyaAmarasinghe/mcp-kubernetes/internal/server"
@@ -14,10 +15,24 @@ import (
 func main() {
 	// Parse command line flags
 	port := flag.Int("port", 3000, "Port to run the server on")
+	allowedCommands := flag.String("allowed-commands", "*", "Comma-separated list of allowed kubectl commands, or * for all commands")
 	flag.Parse()
 
+	// Parse allowed commands
+	var allowedCommandsList []string
+	if *allowedCommands != "*" {
+		allowedCommandsList = strings.Split(*allowedCommands, ",")
+		// Trim spaces
+		for i, cmd := range allowedCommandsList {
+			allowedCommandsList[i] = strings.TrimSpace(cmd)
+		}
+		log.Printf("Allowed kubectl commands: %v", allowedCommandsList)
+	} else {
+		log.Printf("All kubectl commands are allowed")
+	}
+
 	// Initialize and start the MCP server
-	mcpServer, err := server.NewServer(*port)
+	mcpServer, err := server.NewServer(*port, allowedCommandsList)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}

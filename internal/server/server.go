@@ -17,15 +17,25 @@ import (
 
 // Server represents the MCP server for Kubernetes
 type Server struct {
-	port      int
-	k8sExec   *kubernetes.Executor
-	server    *http.Server
-	upgrader  websocket.Upgrader
-	mcpServer *mcp.Server
+	port            int
+	k8sExec         *kubernetes.Executor
+	server          *http.Server
+	upgrader        websocket.Upgrader
+	mcpServer       *mcp.Server
+	allowedCommands []string    // List of allowed commands, empty means all commands are allowed
+	recentCommands  []CmdRecord // List of recently executed commands
+}
+
+// CmdRecord represents a record of an executed command
+type CmdRecord struct {
+	Command   string    `json:"command"`
+	Timestamp time.Time `json:"timestamp"`
+	Success   bool      `json:"success"`
+	Error     string    `json:"error,omitempty"`
 }
 
 // NewServer creates a new MCP server for Kubernetes
-func NewServer(port int) (*Server, error) {
+func NewServer(port int, allowedCommands []string) (*Server, error) {
 	// Initialize Kubernetes executor
 	k8sExec, err := kubernetes.NewExecutor()
 	if err != nil {
@@ -43,9 +53,11 @@ func NewServer(port int) (*Server, error) {
 
 	// Create server instance
 	s := &Server{
-		port:     port,
-		k8sExec:  k8sExec,
-		upgrader: upgrader,
+		port:            port,
+		k8sExec:         k8sExec,
+		upgrader:        upgrader,
+		allowedCommands: allowedCommands,
+		recentCommands:  make([]CmdRecord, 0, 100), // Pre-allocate space for 100 commands
 	}
 
 	// Create and configure MCP server
@@ -56,6 +68,8 @@ func NewServer(port int) (*Server, error) {
 	mcpServer.RegisterRequestHandler("get-contexts", s.handleGetContexts)
 	mcpServer.RegisterRequestHandler("current-context", s.handleCurrentContext)
 	mcpServer.RegisterRequestHandler("set-context", s.handleSetContext)
+	mcpServer.RegisterRequestHandler("list-recent-commands", s.handleListRecentCommands)
+	mcpServer.RegisterRequestHandler("list-allowed-commands", s.handleListAllowedCommands)
 	
 	s.mcpServer = mcpServer
 
@@ -112,6 +126,49 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// isCommandAllowed checks if a command is allowed to be executed
+func (s *Server) isCommandAllowed(command string) bool {
+	// If allowedCommands is empty, all commands are allowed
+	if len(s.allowedCommands) == 0 {
+		return true
+	}
+
+	// Extract the main command (first word)
+	parts := strings.Fields(command)
+	if len(parts) == 0 {
+		return false
+	}
+	mainCommand := parts[0]
+
+	// Check if the main command is in the allowed list
+	for _, allowed := range s.allowedCommands {
+		if allowed == mainCommand {
+			return true
+		}
+	}
+
+	return false
+}
+
+// recordCommand adds a command to the recent commands list
+func (s *Server) recordCommand(command string, success bool, errMsg string) {
+	// Create a new record
+	record := CmdRecord{
+		Command:   command,
+		Timestamp: time.Now(),
+		Success:   success,
+		Error:     errMsg,
+	}
+
+	// Add to the beginning of the list
+	s.recentCommands = append([]CmdRecord{record}, s.recentCommands...)
+
+	// Keep only the last 100 commands
+	if len(s.recentCommands) > 100 {
+		s.recentCommands = s.recentCommands[:100]
+	}
+}
+
 // handleExecute executes a kubectl command
 func (s *Server) handleExecute(ctx context.Context, params json.RawMessage) (interface{}, error) {
 	// Parse parameters
@@ -123,23 +180,39 @@ func (s *Server) handleExecute(ctx context.Context, params json.RawMessage) (int
 	}
 
 	// Validate command
-	if strings.TrimSpace(p.Command) == "" {
+	command := strings.TrimSpace(p.Command)
+	if command == "" {
 		return nil, fmt.Errorf("command cannot be empty")
 	}
 
+	// Check if command is allowed
+	if !s.isCommandAllowed(command) {
+		errMsg := fmt.Sprintf("command '%s' is not allowed", command)
+		s.recordCommand(command, false, errMsg)
+		return nil, fmt.Errorf(errMsg)
+	}
+
 	// Execute the command
-	output, err := s.k8sExec.Execute(ctx, p.Command)
+	startTime := time.Now()
+	output, err := s.k8sExec.Execute(ctx, command)
+	executionTime := time.Since(startTime)
+
+	// Record the command
 	if err != nil {
+		s.recordCommand(command, false, err.Error())
 		return map[string]interface{}{
-			"success": false,
-			"error":   err.Error(),
-			"output":  output,
+			"success":        false,
+			"error":          err.Error(),
+			"output":         output,
+			"execution_time": executionTime.String(),
 		}, nil
 	}
 
+	s.recordCommand(command, true, "")
 	return map[string]interface{}{
-		"success": true,
-		"output":  output,
+		"success":        true,
+		"output":         output,
+		"execution_time": executionTime.String(),
 	}, nil
 }
 
@@ -178,17 +251,57 @@ func (s *Server) handleSetContext(ctx context.Context, params json.RawMessage) (
 	}
 
 	// Validate context
-	if strings.TrimSpace(p.Context) == "" {
+	context := strings.TrimSpace(p.Context)
+	if context == "" {
 		return nil, fmt.Errorf("context cannot be empty")
 	}
 
 	// Set the context
-	err := s.k8sExec.SetContext(ctx, p.Context)
+	err := s.k8sExec.SetContext(ctx, context)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set context: %w", err)
 	}
 
 	return map[string]interface{}{
 		"success": true,
+	}, nil
+}
+
+// handleListRecentCommands lists recently executed commands
+func (s *Server) handleListRecentCommands(ctx context.Context, params json.RawMessage) (interface{}, error) {
+	// Parse parameters
+	var p struct {
+		Limit int `json:"limit"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		// If parameters can't be parsed, use default limit
+		p.Limit = 10
+	}
+
+	// Default limit is 10 if not specified or invalid
+	if p.Limit <= 0 {
+		p.Limit = 10
+	}
+
+	// Limit to the number of available commands
+	if p.Limit > len(s.recentCommands) {
+		p.Limit = len(s.recentCommands)
+	}
+
+	return map[string]interface{}{
+		"commands": s.recentCommands[:p.Limit],
+	}, nil
+}
+
+// handleListAllowedCommands lists allowed commands
+func (s *Server) handleListAllowedCommands(ctx context.Context, params json.RawMessage) (interface{}, error) {
+	if len(s.allowedCommands) == 0 {
+		return map[string]interface{}{
+			"allowed_commands": "*", // All commands are allowed
+		}, nil
+	}
+
+	return map[string]interface{}{
+		"allowed_commands": s.allowedCommands,
 	}, nil
 }
