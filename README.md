@@ -10,6 +10,15 @@ You can install this tool directly using Go:
 go install github.com/BhagyaAmarasinghe/mcp-kubernetes/cmd@latest
 ```
 
+If you encounter issues with the above command, you can build and install locally:
+
+```bash
+git clone https://github.com/BhagyaAmarasinghe/mcp-kubernetes.git
+cd mcp-kubernetes
+chmod +x build.sh
+./build.sh
+```
+
 ## Usage
 
 ### Starting the server
@@ -74,6 +83,12 @@ Sets the current Kubernetes context:
   "context": "minikube"
 }
 ```
+
+## Dependencies
+
+- [github.com/mark3labs/mcp-go](https://github.com/mark3labs/mcp-go) - Model Context Protocol implementation
+- [github.com/gorilla/websocket](https://github.com/gorilla/websocket) - WebSocket implementation
+- [github.com/google/uuid](https://github.com/google/uuid) - UUID generation
 
 ## Security
 

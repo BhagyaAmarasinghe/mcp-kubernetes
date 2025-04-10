@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/BhagyaAmarasinghe/mcp-kubernetes/internal/kubernetes"
+	"github.com/BhagyaAmarasinghe/mcp-kubernetes/internal/mcp"
 	"github.com/gorilla/websocket"
-	mcp "github.com/modelcontextprotocol/sdk/go"
 )
 
 // Server represents the MCP server for Kubernetes
@@ -49,31 +49,17 @@ func NewServer(port int) (*Server, error) {
 	}
 
 	// Create and configure MCP server
-	mcpServer, err := s.createMCPServer()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create MCP server: %w", err)
-	}
-	s.mcpServer = mcpServer
-
-	return s, nil
-}
-
-// createMCPServer sets up the MCP server with handlers
-func (s *Server) createMCPServer() (*mcp.Server, error) {
-	// Configure MCP server
-	mcpServer := mcp.NewServer(&mcp.ServerConfig{
-		Name:        "mcp-kubernetes",
-		Description: "MCP server for executing Kubernetes commands",
-		Version:     "1.0.0",
-	})
-
+	mcpServer := mcp.NewServer("mcp-kubernetes", "MCP server for executing Kubernetes commands", "1.0.0")
+	
 	// Register handlers
 	mcpServer.RegisterRequestHandler("execute", s.handleExecute)
 	mcpServer.RegisterRequestHandler("get-contexts", s.handleGetContexts)
 	mcpServer.RegisterRequestHandler("current-context", s.handleCurrentContext)
 	mcpServer.RegisterRequestHandler("set-context", s.handleSetContext)
+	
+	s.mcpServer = mcpServer
 
-	return mcpServer, nil
+	return s, nil
 }
 
 // Start starts the MCP server
@@ -120,11 +106,8 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	// Create MCP connection
-	mcpConn := mcp.NewConnection(conn)
-	
 	// Handle the MCP connection
-	if err := s.mcpServer.HandleConnection(mcpConn); err != nil {
+	if err := s.mcpServer.HandleConnection(conn); err != nil {
 		log.Printf("Error handling MCP connection: %v", err)
 	}
 }
