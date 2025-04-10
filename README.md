@@ -26,6 +26,47 @@ By default, the server runs on port 3000. You can specify a different port using
 mcp-kubernetes -port 8080
 ```
 
+### Auto-starting the server
+
+To automatically start the server when you log in:
+
+#### macOS
+
+Use the provided setup script:
+
+```bash
+chmod +x scripts/setup-claude-desktop.sh
+./scripts/setup-claude-desktop.sh
+```
+
+Or manually set up a LaunchAgent:
+
+```bash
+cp scripts/com.bhagya.mcp-kubernetes.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.bhagya.mcp-kubernetes.plist
+```
+
+#### Linux (systemd)
+
+Create a user service:
+
+```bash
+mkdir -p ~/.config/systemd/user/
+cp scripts/mcp-kubernetes.service ~/.config/systemd/user/
+systemctl --user enable mcp-kubernetes
+systemctl --user start mcp-kubernetes
+```
+
+#### Windows
+
+Add a shortcut to the executable in your startup folder:
+
+```
+Win+R → shell:startup → Create shortcut to mcp-kubernetes.exe
+```
+
+See the scripts/README.md file for more detailed instructions.
+
 ### Using with Claude Desktop
 
 1. Configure Claude Desktop to use the MCP Kubernetes server at `ws://localhost:3000/ws`
