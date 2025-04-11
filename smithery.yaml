@@ -1,0 +1,96 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+title: MCP Kubernetes
+description: A Model Context Protocol (MCP) server for executing Kubernetes commands
+author: Bhagya Amarasinghe
+homepage: https://github.com/BhagyaAmarasinghe/mcp-kubernetes
+icon: kubernetes.svg
+tags:
+  - kubernetes
+  - k8s
+  - infrastructure
+  - devops
+  - containerization
+  - cluster-management
+
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    properties:
+      allowedContexts:
+        type: string
+        description: Comma-separated list of allowed Kubernetes contexts, or "*" to allow all contexts.
+        default: "*"
+      namespace:
+        type: string
+        description: Default namespace for commands that don't specify one.
+        default: ""
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => { 
+      const args = [];
+      
+      if (config.allowedContexts) {
+        args.push(`-allowed-contexts=${config.allowedContexts}`);
+      }
+      
+      if (config.namespace) {
+        args.push(`-namespace=${config.namespace}`);
+      }
+      
+      return { 
+        command: 'mcp-kubernetes', 
+        args: args
+      }; 
+    }
+  exampleConfig:
+    allowedContexts: "minikube,docker-desktop"
+    namespace: "default"
+
+tools:
+  - name: execute
+    description: Execute a kubectl command
+    schema:
+      type: object
+      properties:
+        command:
+          type: string
+          description: The kubectl command to execute (without the 'kubectl' prefix)
+      required:
+        - command
+  
+  - name: get-contexts
+    description: Get available Kubernetes contexts
+    schema:
+      type: object
+      properties: {}
+  
+  - name: current-context
+    description: Get the current Kubernetes context
+    schema:
+      type: object
+      properties: {}
+  
+  - name: set-context
+    description: Set the current Kubernetes context
+    schema:
+      type: object
+      properties:
+        context:
+          type: string
+          description: The context to set as current
+      required:
+        - context
+
+installationMethods:
+  - name: go
+    description: Install using Go
+    command: |
+      go install github.com/BhagyaAmarasinghe/mcp-kubernetes/cmd@latest
+  
+  - name: script
+    description: Install using the installation script
+    command: |
+      curl -fsSL https://raw.githubusercontent.com/BhagyaAmarasinghe/mcp-kubernetes/main/scripts/install.sh | bash

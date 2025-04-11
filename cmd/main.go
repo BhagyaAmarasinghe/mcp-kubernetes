@@ -15,26 +15,21 @@ import (
 func main() {
 	// Parse command line flags
 	port := flag.Int("port", 3000, "Port to run the server on")
-	allowedCommands := flag.String("allowed-commands", "*", "Comma-separated list of allowed kubectl commands, or * for all commands")
+	allowedContextsList := flag.String("allowed-contexts", "*", "Comma-separated list of allowed Kubernetes contexts, or '*' to allow all")
+	namespace := flag.String("namespace", "", "Default namespace for commands that don't specify one")
 	flag.Parse()
 
-	// Parse allowed commands
-	var allowedCommandsList []string
-	if *allowedCommands != "*" {
-		allowedCommandsList = strings.Split(*allowedCommands, ",")
-		// Trim spaces
-		for i, cmd := range allowedCommandsList {
-			allowedCommandsList[i] = strings.TrimSpace(cmd)
-		}
-		log.Printf("Allowed kubectl commands: %v", allowedCommandsList)
-	} else {
-		log.Printf("All kubectl commands are allowed")
-	}
-
 	// Initialize and start the MCP server
-	mcpServer, err := server.NewServer(*port, allowedCommandsList)
+	mcpServer, err := server.NewServer(*port)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
+	}
+
+	// Log configuration
+	log.Printf("MCP Kubernetes server initialized")
+	log.Printf("Allowed contexts: %s", *allowedContextsList)
+	if *namespace != "" {
+		log.Printf("Default namespace: %s", *namespace)
 	}
 
 	// Start the server in a goroutine

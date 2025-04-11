@@ -56,8 +56,8 @@ func TestHandleExecute(t *testing.T) {
 		t.Fatalf("Result is not a map: %v", result)
 	}
 	
-	success, ok := resultMap["success"].(bool)
-	if !ok || !success {
-		t.Errorf("Expected success=true, got %v", resultMap["success"])
+	isError, ok := resultMap["isError"].(bool)
+	if !ok || isError {
+		t.Errorf("Expected isError=false, got %v", resultMap["isError"])
 	}
 }
