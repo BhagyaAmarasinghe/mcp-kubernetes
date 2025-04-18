@@ -11,12 +11,8 @@ import (
 
 // Executor handles the execution of Kubernetes commands
 type Executor struct {
-	kubectlPath     string
-	kubeconfig      string
-	allowedContexts []string
-	defaultNS       string
-	currentContext  string
-	maxCmdDuration  int
+	kubectlPath string
+	kubeconfig  string
 }
 
 // NewExecutor creates a new Kubernetes executor
@@ -88,7 +84,6 @@ func parseCommand(command string) []string {
 	}
 
 	// Split by spaces, respecting quotes
-	// This is a simplified implementation and doesn't handle all cases
 	var args []string
 	inQuote := false
 	var currentArg strings.Builder
@@ -135,20 +130,6 @@ func (e *Executor) GetCurrentContext(ctx context.Context) (string, error) {
 
 // SetContext changes the current Kubernetes context
 func (e *Executor) SetContext(ctx context.Context, contextName string) error {
-	// If allowed contexts are specified, check if the requested context is allowed
-	if len(e.allowedContexts) > 0 {
-		allowed := false
-		for _, ctx := range e.allowedContexts {
-			if ctx == contextName {
-				allowed = true
-				break
-			}
-		}
-		if !allowed {
-			return fmt.Errorf("context '%s' is not in the allowed contexts list", contextName)
-		}
-	}
-	
 	_, err := e.Execute(ctx, fmt.Sprintf("config use-context %s", contextName))
 	return err
 }

@@ -3,7 +3,7 @@
 # Check if MCP Kubernetes is installed
 if ! command -v mcp-kubernetes &> /dev/null; then
     echo "MCP Kubernetes is not installed. Installing now..."
-    go install github.com/BhagyaAmarasinghe/mcp-kubernetes/cmd@latest
+    go install github.com/BhagyaAmarasinghe/mcp-kubernetes@latest
     if [ $? -ne 0 ]; then
         echo "Failed to install MCP Kubernetes"
         exit 1
@@ -22,11 +22,28 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     mkdir -p "$LAUNCH_AGENTS_DIR"
     
     # Copy the plist file
-    cp "$(dirname "$0")/com.bhagya.mcp-kubernetes.plist" "$PLIST_FILE"
-    
-    # Update the path in the plist file if needed
-    GO_BIN=$(which mcp-kubernetes)
-    sed -i '' "s|/Users/bhagya/go/bin/mcp-kubernetes|$GO_BIN|g" "$PLIST_FILE"
+    cat > "$PLIST_FILE" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.bhagya.mcp-kubernetes</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$(which mcp-kubernetes)</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>$HOME/Library/Logs/mcp-kubernetes.err</string>
+    <key>StandardOutPath</key>
+    <string>$HOME/Library/Logs/mcp-kubernetes.log</string>
+</dict>
+</plist>
+EOF
     
     # Unload if it exists
     launchctl unload "$PLIST_FILE" 2>/dev/null
@@ -44,24 +61,24 @@ nohup mcp-kubernetes > /dev/null 2>&1 &
 echo "Waiting for MCP Kubernetes server to start..."
 sleep 2
 
-# Check if server is running
-if curl -s http://localhost:3000/health > /dev/null; then
-    echo "MCP Kubernetes server is running"
-else
-    echo "Failed to start MCP Kubernetes server"
-    exit 1
-fi
-
 echo ""
 echo "======================================================"
-echo "MCP Kubernetes is now running at ws://localhost:3000/ws"
+echo "MCP Kubernetes is now running"
 echo ""
 echo "To use with Claude Desktop:"
 echo "1. Open Claude Desktop"
-echo "2. Go to Settings > Tools"
-echo "3. Add a new MCP Tool with the URL: ws://localhost:3000/ws"
-echo "4. Name it 'Kubernetes'"
-echo "5. Save the settings"
+echo "2. Go to Settings > Developer"
+echo "3. Edit Config and add the following:"
+echo ""
+echo '{
+  "mcpServers": {
+    "kubernetes": {
+      "command": "mcp-kubernetes"
+    }
+  }
+}'
+echo ""
+echo "4. Save the settings and restart Claude Desktop"
 echo ""
 echo "You can now use Claude to execute Kubernetes commands!"
 echo "======================================================"

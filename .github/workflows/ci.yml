@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Test
+      run: go test -v ./...
+
+  release:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+
+    - name: Build for multiple platforms
+      run: |
+        mkdir -p dist
+        GOOS=linux GOARCH=amd64 go build -o dist/mcp-kubernetes-linux-amd64
+        GOOS=darwin GOARCH=amd64 go build -o dist/mcp-kubernetes-darwin-amd64
+        GOOS=darwin GOARCH=arm64 go build -o dist/mcp-kubernetes-darwin-arm64
+        GOOS=windows GOARCH=amd64 go build -o dist/mcp-kubernetes-windows-amd64.exe
+
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ github.run_number }}
+        name: Release v${{ github.run_number }}
+        draft: false
+        prerelease: false
+        files: |
+          dist/mcp-kubernetes-linux-amd64
+          dist/mcp-kubernetes-darwin-amd64
+          dist/mcp-kubernetes-darwin-arm64
+          dist/mcp-kubernetes-windows-amd64.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

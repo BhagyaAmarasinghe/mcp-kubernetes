@@ -1,23 +1,19 @@
-FROM golang:1.20-alpine AS builder
+FROM golang:1.23-alpine AS builder
+
 WORKDIR /app
 
-# Install required dependencies
-RUN apk add --no-cache git
-
-# Copy go.mod and go.sum first for caching dependencies
-COPY go.mod go.sum ./
-
-# Download dependencies
+# Copy go.mod and go.sum files first to leverage Docker caching
+COPY go.mod go.sum* ./
 RUN go mod download
 
 # Copy the source code
 COPY . .
 
 # Build the application
-RUN go build -ldflags="-s -w" -o mcp-kubernetes ./cmd
+RUN CGO_ENABLED=0 GOOS=linux go build -o mcp-kubernetes
 
+# Use a small image for the final container
 FROM alpine:latest
-WORKDIR /app
 
 # Install kubectl
 RUN apk add --no-cache curl && \
@@ -25,9 +21,15 @@ RUN apk add --no-cache curl && \
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/
 
-# Copy the built binary from the builder stage
-COPY --from=builder /app/mcp-kubernetes ./
+# Copy the binary from the builder stage
+COPY --from=builder /app/mcp-kubernetes /usr/local/bin/
 
-# Run with a default configuration
-ENTRYPOINT ["./mcp-kubernetes"]
-CMD ["--allowed-contexts=*"]
+# Create a directory for Kubernetes config
+RUN mkdir -p /root/.kube
+
+# The kubeconfig should be mounted at runtime
+VOLUME ["/root/.kube"]
+
+# Run the server
+ENTRYPOINT ["mcp-kubernetes"]
+CMD ["-port", "8080"]

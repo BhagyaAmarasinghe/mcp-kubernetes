@@ -7,52 +7,40 @@ A Model Context Protocol (MCP) server for executing Kubernetes commands from Cla
 You can install this tool directly using Go:
 
 ```bash
-go install github.com/BhagyaAmarasinghe/mcp-kubernetes/cmd@latest
+go install github.com/BhagyaAmarasinghe/mcp-kubernetes@latest
 ```
 
 ## Usage
 
-### Configuration Options
+### Starting the server
 
-When configuring Claude Desktop to use the MCP Kubernetes server, you can provide several command-line options:
-
-* `-port`: Specify a port for the server (default: 3000, only relevant for direct usage)
-* `-allowed-contexts`: Comma-separated list of allowed Kubernetes contexts (default: all contexts are allowed)
-* `-namespace`: Default namespace for commands that don't specify one
-
-Examples:
+Run the MCP Kubernetes server:
 
 ```bash
-# Restrict to specific contexts
--allowed-contexts=minikube,docker-desktop
+mcp-kubernetes
+```
 
-# Set default namespace
--namespace=default
+By default, the server runs using stdio transport. You can specify a different port for HTTP transport with the `-port` flag:
+
+```bash
+mcp-kubernetes -port 8080
 ```
 
 ### Using with Claude Desktop
 
-1. Open your Claude Desktop App configuration at:
-   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-
-2. Add the MCP Kubernetes server to your configuration:
+1. Configure Claude Desktop to use the MCP Kubernetes server by adding it to your `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "kubernetes": {
-      "command": "mcp-kubernetes",
-      "args": [
-        "-allowed-contexts=minikube,docker-desktop",
-        "-namespace=default"
-      ]
+      "command": "mcp-kubernetes"
     }
   }
 }
 ```
 
-3. You can now use Claude to execute Kubernetes commands, such as:
+2. You can now use Claude to execute Kubernetes commands, such as:
    - "Show me the pods in the default namespace"
    - "List all services across all namespaces"
    - "Check the status of my deployment named my-app"
@@ -101,15 +89,9 @@ Sets the current Kubernetes context:
 
 This MCP server executes kubectl commands directly on your machine, so it should only be used in trusted environments. It does not implement authentication or authorization controls by default.
 
-You can increase security by:
-
-1. Using the `-allowed-contexts` flag to restrict which Kubernetes contexts can be used
-2. Using the `-namespace` flag to set a default namespace for commands that don't specify one
-3. Running the server with a user that has limited permissions
-
 ## Requirements
 
-- Go 1.20 or higher
+- Go 1.23 or higher
 - kubectl installed and in your PATH
 - A valid kubeconfig file
 

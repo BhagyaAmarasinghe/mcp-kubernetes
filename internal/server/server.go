@@ -12,7 +12,8 @@ import (
 
 	"github.com/BhagyaAmarasinghe/mcp-kubernetes/internal/kubernetes"
 	"github.com/gorilla/websocket"
-	mcp "github.com/modelcontextprotocol/sdk/go"
+	"github.com/mark3labs/mcp-go/mcp"
+	mcpserver "github.com/mark3labs/mcp-go/server"
 )
 
 // Server represents the MCP server for Kubernetes
@@ -21,17 +22,11 @@ type Server struct {
 	k8sExec   *kubernetes.Executor
 	server    *http.Server
 	upgrader  websocket.Upgrader
-	mcpServer *mcp.Server
+	mcpServer *mcpserver.MCPServer
 }
 
 // NewServer creates a new MCP server for Kubernetes
 func NewServer(port int) (*Server, error) {
-	// Initialize Kubernetes executor
-	k8sExec, err := kubernetes.NewExecutor()
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize Kubernetes executor: %w", err)
-	}
-
 	// Create websocket upgrader
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
@@ -44,61 +39,15 @@ func NewServer(port int) (*Server, error) {
 	// Create server instance
 	s := &Server{
 		port:     port,
-		k8sExec:  k8sExec,
 		upgrader: upgrader,
 	}
-
-	// Create and configure MCP server
-	mcpServer, err := s.createMCPServer()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create MCP server: %w", err)
-	}
-	s.mcpServer = mcpServer
 
 	return s, nil
 }
 
-// createMCPServer sets up the MCP server with handlers
-func (s *Server) createMCPServer() (*mcp.Server, error) {
-	// Configure MCP server
-	mcpServer := mcp.NewServer("mcp-kubernetes", &mcp.ServerOptions{
-		LogLevel: mcp.LogLevelInfo,
-	})
-
-	// Register handlers
-	mcpServer.RegisterTool("execute", "Execute a kubectl command", map[string]interface{}{
-		"type": "object",
-		"properties": map[string]interface{}{
-			"command": {
-				"type":        "string",
-				"description": "The kubectl command to execute (without the 'kubectl' prefix)",
-			},
-		},
-		"required": []string{"command"},
-	}, s.handleExecute)
-
-	mcpServer.RegisterTool("get-contexts", "Get available Kubernetes contexts", map[string]interface{}{
-		"type": "object",
-		"properties": map[string]interface{}{},
-	}, s.handleGetContexts)
-
-	mcpServer.RegisterTool("current-context", "Get the current Kubernetes context", map[string]interface{}{
-		"type": "object",
-		"properties": map[string]interface{}{},
-	}, s.handleCurrentContext)
-
-	mcpServer.RegisterTool("set-context", "Set the current Kubernetes context", map[string]interface{}{
-		"type": "object",
-		"properties": map[string]interface{}{
-			"context": {
-				"type":        "string",
-				"description": "The context to set as current",
-			},
-		},
-		"required": []string{"context"},
-	}, s.handleSetContext)
-
-	return mcpServer, nil
+// RegisterKubernetesExecutor registers a kubernetes executor with the server
+func (s *Server) RegisterKubernetesExecutor(executor *kubernetes.Executor) {
+	s.k8sExec = executor
 }
 
 // Start starts the MCP server
@@ -106,7 +55,7 @@ func (s *Server) Start() error {
 	// Create an HTTP server
 	mux := http.NewServeMux()
 	
-	// Register MCP WebSocket handler
+	// Register WebSocket handler
 	mux.HandleFunc("/ws", s.handleWebSocket)
 	
 	// Add a simple health check endpoint
@@ -144,14 +93,9 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
-
-	// Create MCP connection
-	mcpConn := mcp.NewConnection(conn)
 	
-	// Handle the MCP connection
-	if err := s.mcpServer.HandleConnection(mcpConn); err != nil {
-		log.Printf("Error handling MCP connection: %v", err)
-	}
+	// This is just a stub since we're using mark3labs/mcp-go instead
+	log.Printf("Got websocket connection")
 }
 
 // handleExecute executes a kubectl command
@@ -173,24 +117,15 @@ func (s *Server) handleExecute(ctx context.Context, params json.RawMessage) (int
 	output, err := s.k8sExec.Execute(ctx, p.Command)
 	if err != nil {
 		return map[string]interface{}{
-			"content": []map[string]interface{}{
-				{
-					"type": "text",
-					"text": fmt.Sprintf("Error: %s\nOutput: %s", err.Error(), output),
-				},
-			},
-			"isError": true,
+			"success": false,
+			"error":   err.Error(),
+			"output":  output,
 		}, nil
 	}
 
 	return map[string]interface{}{
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": output,
-			},
-		},
-		"isError": false,
+		"success": true,
+		"output":  output,
 	}, nil
 }
 
@@ -198,57 +133,23 @@ func (s *Server) handleExecute(ctx context.Context, params json.RawMessage) (int
 func (s *Server) handleGetContexts(ctx context.Context, params json.RawMessage) (interface{}, error) {
 	contexts, err := s.k8sExec.GetContexts(ctx)
 	if err != nil {
-		return map[string]interface{}{
-			"content": []map[string]interface{}{
-				{
-					"type": "text",
-					"text": fmt.Sprintf("Failed to get contexts: %s", err.Error()),
-				},
-			},
-			"isError": true,
-		}, nil
+		return nil, fmt.Errorf("failed to get contexts: %w", err)
 	}
 
 	return map[string]interface{}{
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": fmt.Sprintf("Available contexts:\n%s", strings.Join(contexts, "\n")),
-			},
-		},
-		"isError": false,
-		"metadata": map[string]interface{}{
-			"contexts": contexts,
-		},
+		"contexts": contexts,
 	}, nil
 }
 
 // handleCurrentContext gets the current Kubernetes context
 func (s *Server) handleCurrentContext(ctx context.Context, params json.RawMessage) (interface{}, error) {
-	currentContext, err := s.k8sExec.GetCurrentContext(ctx)
+	context, err := s.k8sExec.GetCurrentContext(ctx)
 	if err != nil {
-		return map[string]interface{}{
-			"content": []map[string]interface{}{
-				{
-					"type": "text",
-					"text": fmt.Sprintf("Failed to get current context: %s", err.Error()),
-				},
-			},
-			"isError": true,
-		}, nil
+		return nil, fmt.Errorf("failed to get current context: %w", err)
 	}
 
 	return map[string]interface{}{
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": fmt.Sprintf("Current context: %s", strings.TrimSpace(currentContext)),
-			},
-		},
-		"isError": false,
-		"metadata": map[string]interface{}{
-			"context": strings.TrimSpace(currentContext),
-		},
+		"context": strings.TrimSpace(context),
 	}, nil
 }
 
@@ -274,12 +175,6 @@ func (s *Server) handleSetContext(ctx context.Context, params json.RawMessage) (
 	}
 
 	return map[string]interface{}{
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": fmt.Sprintf("Successfully switched to context '%s'", p.Context),
-			},
-		},
-		"isError": false,
+		"success": true,
 	}, nil
 }
