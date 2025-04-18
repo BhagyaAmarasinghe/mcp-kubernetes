@@ -31,9 +31,6 @@ func main() {
 	s := server.NewMCPServer(
 		"MCP Kubernetes",
 		"1.0.0",
-		server.WithToolsCapabilities(true),
-		server.WithLogging(),
-		server.WithRecovery(),
 	)
 
 	// Add execute command tool
@@ -118,27 +115,33 @@ func main() {
 		return mcp.NewToolResultText(fmt.Sprintf("Successfully switched to context: %s", contextName)), nil
 	})
 
-	// Start the server in a goroutine
-	go func() {
-		// Start the server based on the port flag
-		if *port > 0 {
-			fmt.Printf("Starting MCP Kubernetes server on port %d...\n", *port)
-			if err := server.ServeHTTP(s, *port); err != nil {
+	// Setup signal handling for graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start the server based on the port flag
+	if *port > 0 {
+		fmt.Printf("Starting MCP Kubernetes server on HTTP port %d...\n", *port)
+		
+		// Start in a goroutine so we can handle shutdown
+		go func() {
+			if err := s.ListenAndServe(fmt.Sprintf(":%d", *port)); err != nil {
 				log.Fatalf("Server error: %v", err)
 			}
-		} else {
-			fmt.Println("Starting MCP Kubernetes server with stdio transport...")
+		}()
+	} else {
+		fmt.Println("Starting MCP Kubernetes server with stdio transport...")
+		
+		// Run in a goroutine so we can handle shutdown
+		go func() {
 			if err := server.ServeStdio(s); err != nil {
 				log.Fatalf("Server error: %v", err)
 			}
-		}
-	}()
+		}()
+	}
 
-	// Wait for interrupt signal to gracefully shutdown the server
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	// Wait for shutdown signal
 	<-quit
-
 	fmt.Println("Shutting down server...")
 	fmt.Println("Server stopped")
 }
